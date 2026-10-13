@@ -80,6 +80,7 @@ model Workspace {
   invitations       WorkspaceInvitation[]
   instagramAccounts InstagramAccount[]
   automations       Automation[]
+  funnels           Funnel[]
   dmLogs            DmLog[]
   trackedLinks      TrackedLink[]
   linkClicks        LinkClick[]
@@ -201,6 +202,9 @@ model Automation {
   publicReplyEnabled Boolean @default(false)
   publicReplyMessage String?
   publicReplyMessages String[] @default([])
+  // Optional funnel that takes over the conversation after this campaign's
+  // trigger fires. Without one the fixed DM flow above runs unchanged.
+  funnelId       String?
   isActive       Boolean @default(true)
   wholeWordMatch Boolean @default(true)
   reportShareSlug    String? @unique
@@ -214,10 +218,13 @@ model Automation {
   dmLogs           DmLog[]
   trackedLinks     TrackedLink[]
   linkClicks       LinkClick[]
+  funnel           Funnel?          @relation(fields: [funnelId], references: [id], onDelete: SetNull)
+  funnelRuns       FunnelRun[]
 
   @@index([workspaceId])
   @@index([instagramAccountId])
   @@index([postId])
+  @@index([funnelId])
 }
 
 model DmLog {
@@ -418,4 +425,75 @@ model ZernioConnection {
 model PostbackDelivery {
   id String @id
   createdAt DateTime @default(now())
+}
+
+enum FunnelRunStatus {
+  ACTIVE
+  WAITING_REPLY
+  WAITING_TIMER
+  COMPLETED
+  EXPIRED
+  FAILED
+}
+
+// A block-based conversation flow. `draft` is what the editor saves;
+// publishing copies it into an immutable FunnelVersion. Shape: lib/funnel/graph.ts.
+model Funnel {
+  id               String   @id @default(cuid())
+  workspaceId      String
+  name             String
+  draft            Json
+  publishedVersion Int?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  versions    FunnelVersion[]
+  runs        FunnelRun[]
+  automations Automation[]
+
+  @@index([workspaceId])
+}
+
+model FunnelVersion {
+  funnelId  String
+  version   Int
+  graph     Json
+  createdAt DateTime @default(now())
+
+  funnel Funnel @relation(fields: [funnelId], references: [id], onDelete: Cascade)
+
+  @@id([funnelId, version])
+}
+
+// One person moving through a funnel. A person has at most one unfinished run
+// per campaign: that is enforced by a partial unique index in the migration
+// (Prisma cannot express it), so `prisma migrate dev` will want to drop it.
+// Keep it.
+model FunnelRun {
+  id                 String          @id @default(cuid())
+  funnelId           String
+  version            Int
+  automationId       String
+  instagramAccountId String
+  userId             String
+  username           String?
+  // Comment that started the run, used for the first message (a private reply).
+  commentId          String?
+  currentNodeId      String
+  status             FunnelRunStatus @default(ACTIVE)
+  variables          Json            @default("{}")
+  lastReply          String?
+  firstMessageSent   Boolean         @default(false)
+  lastInteractionAt  DateTime        @default(now())
+  windowExpiresAt    DateTime
+  failureReason      String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  funnel     Funnel     @relation(fields: [funnelId], references: [id], onDelete: Cascade)
+  automation Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+
+  @@index([automationId, userId])
+  @@index([funnelId])
 }
