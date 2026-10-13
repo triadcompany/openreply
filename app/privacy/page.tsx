@@ -67,8 +67,11 @@ export default function PrivacyPage() {
       <section>
         <h2 className="text-xl font-bold text-white">Contact</h2>
         <p className="mt-3">
-          For privacy questions, contact the repository owner through GitHub or
-          the support email configured for the hosted OpenReply service.
+          For privacy questions, email{" "}
+          <a className="underline" href="mailto:triadcompanyy@gmail.com">
+            triadcompanyy@gmail.com
+          </a>
+          .
         </p>
       </section>
     </LegalShell>

@@ -27,8 +27,11 @@ export default function DataDeletionPage() {
         <h2 className="text-xl font-bold text-white">Delete Workspace Data</h2>
         <p className="mt-3">
           To delete workspace, campaign, log, webhook, billing reference, and
-          operational diagnostic data, contact support from the email address
-          used to sign in. Include the workspace name and the Instagram username
+          operational diagnostic data, email{" "}
+          <a className="underline" href="mailto:triadcompanyy@gmail.com">
+            triadcompanyy@gmail.com
+          </a>{" "}
+          from the email address used to sign in. Include the workspace name and the Instagram username
           connected to the workspace.
         </p>
       </section>
