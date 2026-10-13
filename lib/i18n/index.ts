@@ -17,8 +17,10 @@ export function isLocale(value: unknown): value is Locale {
   return value === "en" || value === "zh-TW" || value === "pt-BR";
 }
 
-export function resolveLocale(value: unknown): Locale {
-  return isLocale(value) ? value : "en";
+// This deployment is Brazilian Portuguese only: whatever the cookie says, the
+// interface renders in pt-BR. The language switcher is hidden to match.
+export function resolveLocale(_value: unknown): Locale {
+  return "pt-BR";
 }
 
 type Placeholders<S extends string> =

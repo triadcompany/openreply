@@ -11,12 +11,12 @@ beforeEach(() => vi.clearAllMocks());
 afterEach(() => vi.unstubAllEnvs());
 
 describe("language preference", () => {
-  it("renders a saved language on the server before hydration", async () => {
+  it("ignores a saved zh-TW cookie: the deployment is pt-BR only", async () => {
     store.get.mockReturnValue({ value: "zh-TW" });
     const { locale, t } = await getI18n();
     expect(store.get).toHaveBeenCalledWith(LOCALE_COOKIE);
-    expect(locale).toBe("zh-TW");
-    expect(t("Settings")).toBe("設定");
+    expect(locale).toBe("pt-BR");
+    expect(t("Settings")).toBe("Configurações");
   });
 
   it("renders Brazilian Portuguese from the saved cookie", async () => {
@@ -26,9 +26,9 @@ describe("language preference", () => {
     expect(t("Settings")).toBe("Configurações");
   });
 
-  it("falls back to English for an invalid cookie", async () => {
+  it("falls back to Brazilian Portuguese for an invalid cookie", async () => {
     store.get.mockReturnValue({ value: "unsupported" });
-    expect((await getI18n()).locale).toBe("en");
+    expect((await getI18n()).locale).toBe("pt-BR");
   });
 
   it("persists only the language cookie, across routes and browser restarts", async () => {
