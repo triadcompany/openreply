@@ -31,6 +31,7 @@ CREATE TABLE "FunnelRun" (
   "userId" TEXT NOT NULL,
   "username" TEXT,
   "commentId" TEXT,
+  "triggerKey" TEXT,
   "currentNodeId" TEXT NOT NULL,
   "status" "FunnelRunStatus" NOT NULL DEFAULT 'ACTIVE',
   "variables" JSONB NOT NULL DEFAULT '{}',

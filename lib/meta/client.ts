@@ -337,6 +337,52 @@ export async function sendPrivateReplyWithLinkButton(
   return handleResponse(response);
 }
 
+export type MessageButton =
+  | { type: "web_url"; url: string; title: string }
+  | { type: "postback"; payload: string; title: string };
+
+/**
+ * Send a button template with any mix of web_url and postback buttons (Meta
+ * allows up to 3). The recipient is a comment (private reply, the first
+ * message of a comment-triggered conversation) or a user's IGSID. Used by
+ * funnels, whose messages carry link and reply buttons together.
+ */
+export async function sendMessageWithButtons(
+  accessToken: string,
+  instagramAccountId: string,
+  recipient: { comment_id: string } | { id: string },
+  text: string,
+  buttons: MessageButton[]
+): Promise<{ recipient_id: string; message_id: string }> {
+  const response = await fetch(
+    `${instagramGraphBase()}/${instagramAccountId}/messages`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        recipient,
+        message: {
+          attachment: {
+            type: "template",
+            payload: {
+              template_type: "button",
+              text: text.slice(0, 640),
+              buttons: buttons
+                .slice(0, 3)
+                .map((button) => ({ ...button, title: button.title.slice(0, 20) })),
+            },
+          },
+        },
+      }),
+    }
+  );
+
+  return handleResponse(response);
+}
+
 /**
  * Send a plain-text direct message to a user by their Instagram-scoped ID.
  * Used to deliver the reveal message after a button postback.

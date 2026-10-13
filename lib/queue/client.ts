@@ -77,15 +77,28 @@ export interface ProcessMessageJob {
   senderId: string;
 }
 
+// A funnel event that happens later than the webhook that started it: a "wait"
+// or "no interaction" timer firing, or a delayed follow re-check.
+export interface ProcessFunnelJob {
+  accountConnectionId?: string;
+  instagramAccountId: string;
+  runId: string;
+  event:
+    | { type: "timeout"; nodeId: string }
+    | { type: "follow_recheck"; nodeId: string; attempt: number };
+}
+
 export type DmQueueJob =
   | ProcessCommentJob
   | ProcessPostbackJob
   | ProcessFollowUpJob
-  | ProcessMessageJob;
+  | ProcessMessageJob
+  | ProcessFunnelJob;
 
 export const POSTBACK_JOB_NAME = "process-postback";
 export const FOLLOWUP_JOB_NAME = "process-followup";
 export const MESSAGE_JOB_NAME = "process-message";
+export const FUNNEL_JOB_NAME = "process-funnel";
 
 let dmQueue: Queue<DmQueueJob> | null = null;
 

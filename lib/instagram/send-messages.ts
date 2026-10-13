@@ -270,3 +270,54 @@ export async function sendCommentReply({
   if (!result?.data?.commentId) throw new ZernioDeliveryUnconfirmedError();
   return { id: result.data.commentId };
 }
+
+/**
+ * One message with any mix of link and reply buttons, to a comment (private
+ * reply) or to a user. Funnels use this for every message they send.
+ */
+export async function sendButtonMessage({
+  context,
+  instagramAccountId,
+  commentId,
+  userId,
+  postId,
+  text,
+  buttons,
+}: {
+  context: InstagramContext;
+  instagramAccountId: string;
+  commentId?: string;
+  userId: string;
+  postId?: string;
+  text: string;
+  buttons: Button[];
+}) {
+  if (buttons.length === 0) {
+    return commentId
+      ? sendPrivateReply({ context, instagramAccountId, commentId, message: text, postId })
+      : sendDirectMessage({ context, instagramAccountId, userId, message: text });
+  }
+  if (context.provider === "META")
+    return meta.sendMessageWithButtons(
+      context.accessToken,
+      instagramAccountId,
+      commentId ? { comment_id: commentId } : { id: userId },
+      text,
+      buttons.map((button) =>
+        button.type === "url"
+          ? { type: "web_url" as const, url: button.url, title: button.title }
+          : button
+      )
+    );
+  return sendZernioMessage({
+    context,
+    commentId,
+    postId,
+    recipientId: commentId ? undefined : userId,
+    text,
+    buttons: buttons.slice(0, 3).map((button) => ({
+      ...button,
+      title: button.title.slice(0, 20),
+    })),
+  });
+}

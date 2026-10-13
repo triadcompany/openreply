@@ -35,6 +35,7 @@ const {
     instagramAccount: {
       findUnique: vi.fn(),
     },
+    funnelRun: { findFirst: vi.fn(), findUnique: vi.fn() },
     operationalEvent: {
       create: vi.fn(),
     },
@@ -119,6 +120,7 @@ vi.mock("@/lib/queue/client", () => ({
   POSTBACK_JOB_NAME: "process-postback",
   FOLLOWUP_JOB_NAME: "process-followup",
   MESSAGE_JOB_NAME: "process-message",
+  FUNNEL_JOB_NAME: "process-funnel",
 }));
 
 vi.mock("bullmq", () => {

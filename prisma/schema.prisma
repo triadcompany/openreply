@@ -480,6 +480,9 @@ model FunnelRun {
   username           String?
   // Comment that started the run, used for the first message (a private reply).
   commentId          String?
+  // What started the run (the comment id, or "dm:<message id>"), so a retried
+  // webhook job cannot start a second run for the same trigger.
+  triggerKey         String?
   currentNodeId      String
   status             FunnelRunStatus @default(ACTIVE)
   variables          Json            @default("{}")

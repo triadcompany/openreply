@@ -7,7 +7,9 @@ export const MAX_MESSAGE_BUTTONS = 2;
 
 const position = z.object({ x: z.number(), y: z.number() });
 const minutes = z.number().int().min(1).max(MAX_DELAY_MINUTES);
-const handleId = z.string().min(1).max(40);
+// Ids end up inside button payloads ("fn:<run>:<node>:<button>"), so no colons.
+const safeId = z.string().regex(/^[A-Za-z0-9_-]{1,40}$/);
+const handleId = safeId;
 
 const linkButton = z.object({
   id: handleId,
@@ -28,7 +30,7 @@ export const messageButtonSchema = z.discriminatedUnion("kind", [
 const variableName = z.string().regex(/^[a-z][a-z0-9_]{0,29}$/);
 
 const node = <T extends string, D extends z.ZodType>(type: T, data: D) =>
-  z.object({ id: z.string().min(1).max(40), type: z.literal(type), position, data });
+  z.object({ id: safeId, type: z.literal(type), position, data });
 
 export const funnelNodeSchema = z.discriminatedUnion("type", [
   node("start", z.object({})),

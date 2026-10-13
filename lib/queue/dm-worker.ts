@@ -13,6 +13,8 @@ import {
   MESSAGE_JOB_NAME,
   POSTBACK_JOB_NAME,
   FOLLOWUP_JOB_NAME,
+  FUNNEL_JOB_NAME,
+  type ProcessFunnelJob,
   type DmQueueJob,
   type ProcessCommentJob,
   type ProcessMessageJob,
@@ -20,6 +22,12 @@ import {
   type ProcessFollowUpJob,
 } from "./client";
 import { prisma } from "@/lib/db/client";
+import {
+  handleFunnelJob,
+  handleFunnelPostback,
+  handleFunnelReply,
+  startFunnelForTrigger,
+} from "@/lib/funnel/executor";
 import {
   MetaApiError,
   RateLimitError,
@@ -272,7 +280,7 @@ async function sendRevealDirectMessage({
 }
 
 
-function connectionScope(data: DmQueueJob) {
+function connectionScope(data: Exclude<DmQueueJob, ProcessFunnelJob>) {
   return data.accountConnectionId ? { instagramAccountId: data.accountConnectionId } : {};
 }
 
@@ -527,6 +535,33 @@ async function processComment(job: Job<ProcessCommentJob>): Promise<void> {
         },
       });
       continue;
+    }
+
+    // A campaign linked to a published funnel hands the conversation to it. The
+    // funnel sends its own messages (the first one as this comment's private
+    // reply, logged on this comment's row). No published funnel: run the fixed
+    // flow below as before.
+    if (automation.funnelId) {
+      const outcome = await startFunnelForTrigger({
+        automation,
+        instagramAccountId: automation.instagramAccountId,
+        userId: commenterId,
+        username: commenterName,
+        commentId,
+        triggerKey: commentId,
+      });
+      if (outcome !== "no_funnel") {
+        if (outcome === "busy") {
+          await prisma.dmLog.updateMany({
+            where: { automationId: automation.id, commentId, status: "PENDING" },
+            data: {
+              status: "SKIPPED_DEDUP",
+              errorMessage: "Pessoa já está em uma conversa deste funil.",
+            },
+          });
+        }
+        continue;
+      }
     }
 
     const usage = await reserveWorkspaceDMSend(automation.workspaceId);
@@ -887,6 +922,10 @@ async function sendFollowRecheckAck({
  */
 async function processPostback(job: Job<ProcessPostbackJob>): Promise<void> {
   const { instagramAccountId, userId, payload, fallback } = job.data;
+
+  if (payload.startsWith("fn:")) {
+    return handleFunnelPostback({ payload, userId, instagramAccountId });
+  }
 
   const isFollowCheck = payload.startsWith("followcheck:");
   if (!isFollowCheck && !payload.startsWith("reveal:")) return;
@@ -1279,6 +1318,11 @@ async function processFollowUp(job: Job<ProcessFollowUpJob>): Promise<void> {
 async function processMessage(job: Job<ProcessMessageJob>): Promise<void> {
   const { instagramAccountId, messageId, messageText, senderId } = job.data;
 
+  // Someone a funnel is waiting on is answering it, not triggering a campaign.
+  if (await handleFunnelReply({ instagramAccountId, senderId, text: messageText })) {
+    return;
+  }
+
   const automations = await prisma.automation.findMany({
     where: {
       ...connectionScope(job.data),
@@ -1394,6 +1438,17 @@ async function processMessage(job: Job<ProcessMessageJob>): Promise<void> {
       select: { commenterName: true },
     });
     const commenterName = priorLog?.commenterName ?? null;
+
+    if (automation.funnelId) {
+      const outcome = await startFunnelForTrigger({
+        automation,
+        instagramAccountId: automation.instagramAccountId,
+        userId: senderId,
+        username: commenterName,
+        triggerKey: dedupeId,
+      });
+      if (outcome !== "no_funnel") continue;
+    }
 
     // Follow gate: anyone not confirmed as a follower gets the prompt instead of
     // the link, with the same `followcheck:` button that re-verifies on tap.
@@ -1542,6 +1597,9 @@ async function dispatchJob(job: Job<DmQueueJob>): Promise<void> {
   }
   if (job.name === MESSAGE_JOB_NAME) {
     return processMessage(job as Job<ProcessMessageJob>);
+  }
+  if (job.name === FUNNEL_JOB_NAME) {
+    return handleFunnelJob((job as Job<ProcessFunnelJob>).data);
   }
   return processComment(job as Job<ProcessCommentJob>);
 }

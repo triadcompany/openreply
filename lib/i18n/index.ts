@@ -19,7 +19,8 @@ export function isLocale(value: unknown): value is Locale {
 
 // This deployment is Brazilian Portuguese only: whatever the cookie says, the
 // interface renders in pt-BR. The language switcher is hidden to match.
-export function resolveLocale(_value: unknown): Locale {
+export function resolveLocale(value: unknown): Locale {
+  void value;
   return "pt-BR";
 }
 
